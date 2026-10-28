@@ -1,0 +1,16 @@
+services:
+  research-agent:
+    build: ./src
+    container_name: research-agent
+    ports:
+      - "8080:8080"
+    models:
+      - research_llm
+    volumes:
+      - ./:/app
+    stdin_open: true
+    tty: true
+
+models:
+  research_llm:
+    model: ai/qwen2.5
