@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,6 +11,10 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/openai/openai-go/v3"
+	"github.com/openai/openai-go/v3/option"
+	"github.com/openai/openai-go/v3/responses"
 )
 
 type AskRequest struct {
@@ -140,8 +145,58 @@ func askHandler(w http.ResponseWriter, r *http.Request) {
 		Response: llmResp.Choices[0].Message.Content,
 	})
 }
+
+func OpenAIAskHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method != "POST" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(AskResponse{
+			Error: "Only post request is supported",
+		})
+	}
+
+	var req AskRequest
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Prompt) == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(AskResponse{Error: "Empty prompt not allowed"})
+		return
+	}
+
+	ctx := context.Background()
+
+	baseUrl := os.Getenv("RESEARCH_LLM_URL")
+	// http://model-runner.docker.internal/v1/
+	modelName := os.Getenv("RESEARCH_LLM_MODEL")
+	// ai/qwen2.5
+
+	client := openai.NewClient(
+		option.WithAPIKey("test"),
+		option.WithBaseURL(baseUrl),
+	)
+
+	resp, err := client.Responses.New(ctx, responses.ResponseNewParams{
+		Input: responses.ResponseNewParamsInputUnion{OfString: openai.String(req.Prompt)},
+		Model: modelName,
+	})
+
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(AskResponse{
+			Error: fmt.Sprintf("Error while generating response: %v", err),
+		})
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(AskResponse{
+		Response: resp.OutputText(),
+		Tokens:   resp.Usage.RawJSON(),
+	})
+}
+
 func main() {
-	http.HandleFunc("/api/ask", askHandler)
+	http.HandleFunc("/api/raw-ask", askHandler)
+	http.HandleFunc("/api/openai-ask", OpenAIAskHandler)
 	if err := http.ListenAndServe(":8080", nil); err != nil {
 		log.Fatalf("Server shutdown: %v", err)
 	}
