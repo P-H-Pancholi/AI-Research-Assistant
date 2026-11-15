@@ -1,0 +1,28 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "Net/http based REST API",
+        "title": "My API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "host": "localhost:8080",
+    "basePath": "/",
+    "paths": {},
+    "definitions": {
+        "main.AskResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "response": {
+                    "type": "string"
+                },
+                "tokens": {
+                    "type": "string"
+                }
+            }
+        }
+    }
+}

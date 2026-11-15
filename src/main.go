@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,9 +11,11 @@ import (
 	"strings"
 	"time"
 
+	_ "github.com/P-H-Pancholi/ai-research-assistant/docs"
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
 	"github.com/openai/openai-go/v3/responses"
+	httpSwagger "github.com/swaggo/http-swagger"
 )
 
 type AskRequest struct {
@@ -50,6 +51,18 @@ type ChatCompletionResponse struct {
 	} `json:"error,omitempty"`
 }
 
+// askHandler godoc
+// @Summary      Ask model (raw HTTP)
+// @Description  Raw request to local model runner via /chat/completions
+// @Tags         ask
+// @Accept       json
+// @Produce      json
+// @Param        request  body      AskRequest  true  "Prompt"
+// @Success      200      {object}  AskResponse
+// @Failure      400      {object}  AskResponse
+// @Failure      405      {object}  AskResponse
+// @Failure      500      {object}  AskResponse
+// @Router       /api/raw-ask [post]
 func askHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -146,6 +159,18 @@ func askHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// OpenAIAskHandler godoc
+// @Summary      Ask model (openai-go)
+// @Description  Request to local model using openai-go Responses API
+// @Tags         ask
+// @Accept       json
+// @Produce      json
+// @Param        request  body      AskRequest  true  "Prompt"
+// @Success      200      {object}  AskResponse
+// @Failure      400      {object}  AskResponse
+// @Failure      405      {object}  AskResponse
+// @Failure      500      {object}  AskResponse
+// @Router       /api/openai-ask [post]
 func OpenAIAskHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -164,8 +189,6 @@ func OpenAIAskHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx := context.Background()
-
 	baseUrl := os.Getenv("RESEARCH_LLM_URL")
 	// http://model-runner.docker.internal/v1/
 	modelName := os.Getenv("RESEARCH_LLM_MODEL")
@@ -176,7 +199,7 @@ func OpenAIAskHandler(w http.ResponseWriter, r *http.Request) {
 		option.WithBaseURL(baseUrl),
 	)
 
-	resp, err := client.Responses.New(ctx, responses.ResponseNewParams{
+	resp, err := client.Responses.New(r.Context(), responses.ResponseNewParams{
 		Input: responses.ResponseNewParamsInputUnion{OfString: openai.String(req.Prompt)},
 		Model: modelName,
 	})
@@ -194,10 +217,26 @@ func OpenAIAskHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func StreamHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+
+}
+
+// @title           My API
+// @version         1.0
+// @description     Net/http based REST API
+// @host            localhost:8080
+// @BasePath        /
 func main() {
-	http.HandleFunc("/api/raw-ask", askHandler)
-	http.HandleFunc("/api/openai-ask", OpenAIAskHandler)
-	if err := http.ListenAndServe(":8080", nil); err != nil {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/raw-ask", askHandler)
+	mux.HandleFunc("/api/openai-ask", OpenAIAskHandler)
+	mux.Handle("/swagger/", httpSwagger.Handler(
+		httpSwagger.URL("/swagger/doc.json"),
+	))
+	if err := http.ListenAndServe(":8080", mux); err != nil {
 		log.Fatalf("Server shutdown: %v", err)
 	}
 }
