@@ -1,0 +1,19 @@
+basePath: /
+definitions:
+  main.AskResponse:
+    properties:
+      error:
+        type: string
+      response:
+        type: string
+      tokens:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: Net/http based REST API
+  title: My API
+  version: "1.0"
+paths: {}
+swagger: "2.0"

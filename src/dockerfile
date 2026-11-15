@@ -6,7 +6,10 @@ COPY go.mod ./
 COPY go.sum* ./
 RUN go mod download || true
 
+
 COPY . .
+RUN go install github.com/swaggo/swag/cmd/swag@latest
+RUN swag init -g main.go
 RUN CGO_ENABLED=0 GOOS=linux go build -o server main.go
 
 # Stage 2: Minimal runtime image
